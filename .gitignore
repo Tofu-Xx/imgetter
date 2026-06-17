@@ -1,0 +1,9 @@
+node_modules/
+.svelte-kit/
+dist/
+.vite/
+__pycache__/
+*.pyc
+.env
+backend/downloads/
+*.docx

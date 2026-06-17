@@ -1,0 +1,36 @@
+# 阿里云函数计算部署配置
+# s.yaml (Serverless Devs 配置)
+
+edition: 3.0.0
+name: imgetter-backend
+access: default
+
+vars:
+  region: cn-hangzhou
+
+resources:
+  imgetter-api:
+    component: fc3
+    props:
+      region: ${vars.region}
+      functionName: imgetter-api
+      description: "ImGetter 图片采集 API"
+      runtime: python3.10
+      handler: app.main.handler
+      memorySize: 512
+      diskSize: 10240
+      timeout: 30
+      internetAccess: true
+      environmentVariables:
+        ENV: production
+      triggers:
+        - triggerName: http-trigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - OPTIONS
+      customDomains:
+        - domain: auto

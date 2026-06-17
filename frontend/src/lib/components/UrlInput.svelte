@@ -1,7 +1,7 @@
 <script lang="ts">
   import { store } from "$lib/stores/collector.svelte";
 
-  // oxlint-disable-next-line eslint-no-unassigned-vars -- bind:this assigns at runtime
+  // oxlint-disable-next-line eslint-no-unassigned-vars  no-unassigned-vars-- bind:this assigns at runtime
   let inputEl: HTMLInputElement;
   let displayUrl = $state("");
 

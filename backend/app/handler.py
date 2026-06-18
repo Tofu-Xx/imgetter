@@ -63,8 +63,12 @@ def handler(event, context):
                 imgs = []
                 seen = set()
 
-                for match in re.finditer(r'<img\s+[^>]*?src=["\']([^"\']+)["\']', html, re.IGNORECASE):
-                    src = match.group(1)
+                for match in re.finditer(r'<img\s+[^>]*?>', html, re.IGNORECASE):
+                    tag = match.group(0)
+                    src_m = re.search(r'src=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+                    if not src_m:
+                        continue
+                    src = src_m.group(1)
                     if src.startswith("data:"):
                         continue
                     abs_url = urljoin(url, src.split(",")[0].strip().split(" ")[0])
@@ -76,14 +80,20 @@ def handler(event, context):
                         continue
                     seen.add(abs_url)
 
-                    alt_match = re.search(r'alt=["\']([^"\']*)["\']', match.group(0), re.IGNORECASE)
-                    alt = alt_match.group(1) if alt_match else ""
+                    alt_m = re.search(r'alt=["\']([^"\']*)["\']', tag, re.IGNORECASE)
+                    alt = alt_m.group(1) if alt_m else ""
+
+                    # 提取 width/height
+                    w_m = re.search(r'width=["\'](\d+)["\']', tag, re.IGNORECASE)
+                    h_m = re.search(r'height=["\'](\d+)["\']', tag, re.IGNORECASE)
+                    width = int(w_m.group(1)) if w_m else None
+                    height = int(h_m.group(1)) if h_m else None
 
                     imgs.append({
                         "src": abs_url,
                         "alt": alt,
-                        "width": None,
-                        "height": None,
+                        "width": width,
+                        "height": height,
                         "format": ext,
                         "size_bytes": None,
                         "thumbnail_url": f"/api/proxy?url={abs_url}",

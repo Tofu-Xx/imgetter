@@ -36,8 +36,4 @@
       {/if}
     </div>
   </div>
-
-  <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-    <div class="i-mdi-eye text-white text-2xl"></div>
-  </div>
 </button>

@@ -1,10 +1,26 @@
 <script lang="ts">
   import type { ImageInfo } from "$lib/types";
   import { store } from "$lib/stores/collector.svelte";
+  import { fetchProxyImage } from "$lib/api";
 
   let { image }: { image: ImageInfo } = $props();
 
   const isSelected = $derived(store.selectedImages.includes(image.src));
+
+  let imgSrc = $state("");
+  let loading = $state(true);
+
+  $effect(() => {
+    loading = true;
+    fetchProxyImage(image.src)
+      .then((url) => {
+        imgSrc = url;
+        loading = false;
+      })
+      .catch(() => {
+        loading = false;
+      });
+  });
 
   function formatSize(bytes: number | null): string {
     if (!bytes) return "";
@@ -19,12 +35,22 @@
   onclick={() => store.toggleSelection(image.src)}
 >
   <div class="aspect-square overflow-hidden bg-gray-100 dark:bg-white/5">
-    <img
-      src={image.thumbnail_url}
-      alt={image.alt}
-      loading="lazy"
-      class="w-full h-full object-cover transition-transform group-hover:scale-105"
-    />
+    {#if loading}
+      <div class="w-full h-full flex items-center justify-center">
+        <div class="i-mdi-loading animate-spin text-2xl text-gray-400"></div>
+      </div>
+    {:else if imgSrc}
+      <img
+        src={imgSrc}
+        alt={image.alt}
+        loading="lazy"
+        class="w-full h-full object-cover transition-transform group-hover:scale-105"
+      />
+    {:else}
+      <div class="w-full h-full flex items-center justify-center text-gray-400">
+        <div class="i-mdi-image-off text-2xl"></div>
+      </div>
+    {/if}
   </div>
 
   <div class="absolute top-2 right-2">

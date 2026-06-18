@@ -32,6 +32,19 @@ def handler(event, context):
 
         UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
+        # CORS 预检
+        if method == "OPTIONS":
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Max-Age": "86400",
+                },
+                "body": "",
+            }
+
         with httpx.Client(headers={"User-Agent": UA}, timeout=15, follow_redirects=True, trust_env=False) as c:
             if path == "/api/parse" and method == "POST":
                 data = json.loads(body) if body else {}
@@ -88,14 +101,16 @@ def handler(event, context):
                 if not u:
                     return _r(400, {"error": "no url"})
                 resp = c.get(u)
+                ct = resp.headers.get("content-type", "image/jpeg")
+                import base64
+                body_b64 = base64.b64encode(resp.content).decode("ascii")
                 return {
                     "statusCode": 200,
                     "headers": {
-                        "Content-Type": resp.headers.get("content-type", "image/jpeg"),
-                        "Cache-Control": "public, max-age=86400",
+                        "Content-Type": "application/json",
                         "Access-Control-Allow-Origin": "*",
                     },
-                    "body": resp.content.decode("latin-1"),
+                    "body": json.dumps({"content_type": ct, "data": body_b64}),
                     "isBase64Encoded": False,
                 }
 
@@ -109,6 +124,11 @@ def handler(event, context):
 def _r(s, d):
     return {
         "statusCode": s,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        },
         "body": json.dumps(d, ensure_ascii=False),
     }

@@ -44,5 +44,20 @@ export async function downloadZip(urls: string[]): Promise<void> {
 }
 
 export function getProxyUrl(src: string): string {
-  return `${BASE}/proxy?url=${encodeURIComponent(src)}`;
+  // 线上环境使用 base64 代理
+  if (!import.meta.env.DEV) {
+    return `${BASE}/proxy?url=${encodeURIComponent(src)}`;
+  }
+  // 开发环境直接用 proxy
+  return `/api/proxy?url=${encodeURIComponent(src)}`;
+}
+
+export async function fetchProxyImage(src: string): Promise<string> {
+  if (import.meta.env.DEV) {
+    return `/api/proxy?url=${encodeURIComponent(src)}`;
+  }
+  const res = await fetch(`${BASE}/proxy?url=${encodeURIComponent(src)}`);
+  if (!res.ok) throw new Error("proxy failed");
+  const data = await res.json();
+  return `data:${data.content_type};base64,${data.data}`;
 }

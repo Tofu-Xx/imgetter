@@ -17,13 +17,15 @@ resources:
       description: "ImGetter 图片采集 API"
       runtime: python3.10
       handler: app.handler.handler
-      memorySize: 512
+      memorySize: 1024
+      cpu: 0.5
       diskSize: 10240
       timeout: 30
       internetAccess: true
       code: ./
       environmentVariables:
         ENV: production
+        PYTHONPATH: /var/runtime/site-packages:/var/task
       triggers:
         - triggerName: http-trigger
           triggerType: http

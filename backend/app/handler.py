@@ -1,109 +1,114 @@
 """
 阿里云函数计算入口
-将 Litestar ASGI 应用转换为 FC 兼容的 handler
 """
 import json
-import base64
-import traceback
-from app.main import app
+import sys
+import os
+import re
+from urllib.parse import urljoin, urlparse
+
+pkg = os.path.join(os.path.dirname(__file__), '..', 'package')
+if os.path.exists(pkg):
+    sys.path.insert(0, pkg)
 
 
-async def handler(event, context):
-    """
-    阿里云 FC 3.0 HTTP 触发器处理函数
-    """
+def handler(event, context):
     try:
-        http_method = event.get("httpMethod", "GET")
-        path = event.get("path", "/")
-        headers = event.get("headers", {}) or {}
-        query_string = event.get("queryStringParameters", {}) or {}
+        import httpx
 
+        if isinstance(event, bytes):
+            event = json.loads(event.decode("utf-8"))
+        elif isinstance(event, str):
+            event = json.loads(event)
+
+        path = event.get("rawPath", event.get("path", "/"))
+        method = event.get("httpMethod", event.get("requestContext", {}).get("http", {}).get("method", "GET"))
+        query = event.get("queryParameters", event.get("queryStringParameters", {})) or {}
         body = event.get("body", "")
+
         if body and event.get("isBase64Encoded"):
+            import base64
             body = base64.b64decode(body).decode("utf-8")
 
-        # 构建 query string
-        qs = "&".join(f"{k}={v}" for k, v in query_string.items()).encode()
+        UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
-        # 构建 ASGI scope
-        scope = {
-            "type": "http",
-            "method": http_method,
-            "path": path,
-            "query_string": qs,
-            "headers": [
-                (k.lower().encode(), str(v).encode())
-                for k, v in headers.items()
-            ],
-        }
+        with httpx.Client(headers={"User-Agent": UA}, timeout=15, follow_redirects=True, trust_env=False) as c:
+            if path == "/api/parse" and method == "POST":
+                data = json.loads(body) if body else {}
+                url = data.get("url", "")
+                if not url:
+                    return _r(400, {"error": "no url"})
 
-        # 构建 receive
-        receive_messages = []
-        if body:
-            receive_messages.append({
-                "type": "http.request",
-                "body": body.encode("utf-8"),
-                "more_body": False,
-            })
-        else:
-            receive_messages.append({
-                "type": "http.request",
-                "body": b"",
-                "more_body": False,
-            })
+                resp = c.get(url)
+                resp.raise_for_status()
+                html = resp.text
 
-        message_index = 0
+                title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+                title = title_match.group(1).strip() if title_match else ""
 
-        async def receive():
-            nonlocal message_index
-            msg = receive_messages[message_index]
-            message_index += 1
-            return msg
+                exts = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "avif"}
+                imgs = []
+                seen = set()
 
-        # 收集响应
-        response_body = b""
-        response_status = 200
-        response_headers = {}
+                for match in re.finditer(r'<img\s+[^>]*?src=["\']([^"\']+)["\']', html, re.IGNORECASE):
+                    src = match.group(1)
+                    if src.startswith("data:"):
+                        continue
+                    abs_url = urljoin(url, src.split(",")[0].strip().split(" ")[0])
+                    if abs_url in seen:
+                        continue
+                    p = urlparse(abs_url).path.lower()
+                    ext = p.rsplit(".", 1)[-1].split("?")[0] if "." in p else ""
+                    if ext not in exts:
+                        continue
+                    seen.add(abs_url)
 
-        async def send(message):
-            nonlocal response_body, response_status, response_headers
-            if message["type"] == "http.response.start":
-                response_status = message.get("status", 200)
-                raw_headers = message.get("headers", [])
-                if isinstance(raw_headers, dict):
-                    response_headers = raw_headers
-                else:
-                    for k, v in raw_headers:
-                        if isinstance(k, bytes):
-                            k = k.decode()
-                        if isinstance(v, bytes):
-                            v = v.decode()
-                        response_headers[k] = v
-            elif message["type"] == "http.response.body":
-                response_body += message.get("body", b"")
+                    alt_match = re.search(r'alt=["\']([^"\']*)["\']', match.group(0), re.IGNORECASE)
+                    alt = alt_match.group(1) if alt_match else ""
 
-        await app(scope, receive, send)
+                    imgs.append({
+                        "src": abs_url,
+                        "alt": alt,
+                        "width": None,
+                        "height": None,
+                        "format": ext,
+                        "size_bytes": None,
+                        "thumbnail_url": f"/api/proxy?url={abs_url}",
+                    })
 
-        # 处理响应
-        resp_headers = {}
-        for k, v in response_headers.items():
-            resp_headers[str(k)] = str(v)
+                return _r(200, {
+                    "page_url": url,
+                    "page_title": title,
+                    "images": imgs,
+                    "total_count": len(imgs),
+                })
 
-        return {
-            "statusCode": response_status,
-            "headers": resp_headers,
-            "body": response_body.decode("utf-8", errors="replace"),
-            "isBase64Encoded": False,
-        }
+            elif path == "/api/proxy":
+                u = query.get("url", "")
+                if not u:
+                    return _r(400, {"error": "no url"})
+                resp = c.get(u)
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": resp.headers.get("content-type", "image/jpeg"),
+                        "Cache-Control": "public, max-age=86400",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": resp.content.decode("latin-1"),
+                    "isBase64Encoded": False,
+                }
+
+            return _r(404, {"error": "not found"})
 
     except Exception as e:
-        tb = traceback.format_exc()
-        return {
-            "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({
-                "error": str(e),
-                "traceback": tb,
-            }),
-            "isBase64Encoded": False,
-        }
+        import traceback
+        return _r(500, {"error": str(e), "tb": traceback.format_exc()[-500:]})
+
+
+def _r(s, d):
+    return {
+        "statusCode": s,
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "body": json.dumps(d, ensure_ascii=False),
+    }

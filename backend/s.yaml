@@ -3,7 +3,7 @@
 
 edition: 3.0.0
 name: imgetter-backend
-access: default
+access: aliyunfs
 
 vars:
   region: cn-hangzhou
@@ -16,11 +16,12 @@ resources:
       functionName: imgetter-api
       description: "ImGetter 图片采集 API"
       runtime: python3.10
-      handler: app.main.handler
+      handler: app.handler.handler
       memorySize: 512
       diskSize: 10240
       timeout: 30
       internetAccess: true
+      code: ./
       environmentVariables:
         ENV: production
       triggers:
@@ -32,5 +33,3 @@ resources:
               - GET
               - POST
               - OPTIONS
-      customDomains:
-        - domain: auto

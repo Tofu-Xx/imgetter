@@ -100,19 +100,25 @@ def handler(event, context):
                 u = query.get("url", "")
                 if not u:
                     return _r(400, {"error": "no url"})
-                resp = c.get(u)
-                ct = resp.headers.get("content-type", "image/jpeg")
-                import base64
-                body_b64 = base64.b64encode(resp.content).decode("ascii")
-                return {
-                    "statusCode": 200,
-                    "headers": {
-                        "Content-Type": "application/json",
-                        "Access-Control-Allow-Origin": "*",
-                    },
-                    "body": json.dumps({"content_type": ct, "data": body_b64}),
-                    "isBase64Encoded": False,
-                }
+                try:
+                    resp = c.get(u, headers={
+                        "User-Agent": UA,
+                        "Referer": "https://www.google.com",
+                    })
+                    ct = resp.headers.get("content-type", "image/jpeg")
+                    import base64
+                    body_b64 = base64.b64encode(resp.content).decode("ascii")
+                    return {
+                        "statusCode": 200,
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Access-Control-Allow-Origin": "*",
+                        },
+                        "body": json.dumps({"content_type": ct, "data": body_b64}),
+                        "isBase64Encoded": False,
+                    }
+                except Exception as e:
+                    return _r(502, {"error": f"proxy failed: {str(e)}"})
 
             return _r(404, {"error": "not found"})
 

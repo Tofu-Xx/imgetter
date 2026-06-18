@@ -56,8 +56,13 @@ export async function fetchProxyImage(src: string): Promise<string> {
   if (import.meta.env.DEV) {
     return `/api/proxy?url=${encodeURIComponent(src)}`;
   }
-  const res = await fetch(`${BASE}/proxy?url=${encodeURIComponent(src)}`);
-  if (!res.ok) throw new Error("proxy failed");
-  const data = await res.json();
-  return `data:${data.content_type};base64,${data.data}`;
+  try {
+    const res = await fetch(`${BASE}/proxy?url=${encodeURIComponent(src)}`);
+    if (!res.ok) return src;
+    const data = await res.json();
+    if (data.error) return src;
+    return `data:${data.content_type};base64,${data.data}`;
+  } catch {
+    return src;
+  }
 }

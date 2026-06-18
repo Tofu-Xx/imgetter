@@ -1,5 +1,9 @@
 import type { ImageInfo } from "../types";
-import { parseUrl as apiParseUrl, downloadZip, getProxyUrl } from "../api";
+import {
+  parseUrl as apiParseUrl,
+  downloadZip,
+  fetchProxyImage as fetchProxyUrl,
+} from "../api";
 
 class CollectorStore {
   url = $state("");
@@ -36,10 +40,19 @@ class CollectorStore {
         min_width: this.minWidth,
         min_height: this.minHeight,
       });
-      this.images = res.images.map((img) => ({
-        ...img,
-        thumbnail_url: getProxyUrl(img.src),
-      }));
+
+      // 预加载图片 base64
+      const imagesWithProxy = [];
+      for (const img of res.images) {
+        try {
+          const proxyUrl = await fetchProxyUrl(img.src);
+          imagesWithProxy.push({ ...img, thumbnail_url: proxyUrl });
+        } catch {
+          imagesWithProxy.push({ ...img, thumbnail_url: "" });
+        }
+      }
+
+      this.images = imagesWithProxy;
       this.pageTitle = res.page_title;
       this.pageUrl = res.page_url;
       this.loadingMessage = "";

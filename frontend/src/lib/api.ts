@@ -1,6 +1,8 @@
 import type { ParseRequest, ParseResponse, DownloadResponse } from "./types";
 
-const BASE = "/api";
+const BASE = import.meta.env.DEV
+  ? "/api"
+  : "https://imgetter-api-uffonnnwfp.cn-hangzhou.fcapp.run/api";
 
 export async function parseUrl(req: ParseRequest): Promise<ParseResponse> {
   const res = await fetch(`${BASE}/parse`, {

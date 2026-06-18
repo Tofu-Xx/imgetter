@@ -5,7 +5,7 @@
 # 1. 在 https://gitee.com/projects/new 创建仓库名 "imgetter"
 # 2. 然后运行:
 
-git remote add gitee git@gitee.com:YOUR_USERNAME/imgetter.git
+git remote add gitee git@gitee.com:tofu-xx/imgetter.git
 git push gitee main
 
 echo "Gitee 仓库同步完成！"

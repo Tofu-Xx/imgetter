@@ -4,7 +4,8 @@
 
 [![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://imgetter.pages.dev)
 
-**English** | [中文](#中文)
+### English
+[中文](###中文)
 
 ## Overview
 
@@ -143,7 +144,8 @@ MIT
 
 ---
 
-# 中文 | [英文](#ImGetter)
+### 中文 
+[英文](###English)
 
 ## 项目简介
 
